@@ -1,3 +1,4 @@
+#! /usr/bin/python3.5
 # coding: UTF8
 
 import re
@@ -8,9 +9,10 @@ import os
 import shlex
 
 # apache_conf_path = "/etc/httpd/conf/"
-apache_conf_path = "./"
+apache_conf_path = "/etc/httpd/conf/"
 apache_conf = apache_conf_path + 'httpd.conf'
-apache_conf_incledes = apache_conf_path + 'includes/'
+apache_conf_includes = apache_conf_path + 'includes/'
+includes_conf = apache_conf_includes + "post_virtualhost_global.conf"
 # wget https://dl.eff.org/certbot-auto
 # chmod a+x certbot-auto
 
@@ -20,7 +22,7 @@ def readfile(ifile):
     try:
         f = open(ifile, 'r')
     except:
-        print("File " + ifile + "not found or permissions denied.")
+        print("File " + ifile + " not found or permissions denied.")
         sys.exit(3)
     while True:
         line = f.readline()
@@ -67,13 +69,13 @@ def main(argv):
         print("")
         print("Usege " + script_filename + " with parametres:")
         print("  For create new certs:")
-        print("    " + script_filename + " --create -d domain1.tld www.domain2.tld subdomain.domain3.tld")
-        print("  For create new certs:")
-        print("    " + script_filename + " --renew")
+        print("    " + script_filename + " --create --email=admin@doman.com -d domain1.tld www.domain2.tld subdomain.domain3.tld")
+        #print("  For create new certs:")
+        #print("    " + script_filename + " --renew")
         print("")
 
     action = ''
-    email = 'admin@domain.com'
+    email = ''
     script_filename = os.path.basename(sys.argv[0])
     domain_list = readfile(apache_conf)
     try:
@@ -92,8 +94,11 @@ def main(argv):
 
     if action == 'create':
         list_for_create = find_domains(args, domain_list)
-        rc, status = create_cert(list_for_create, email)
-        print("Create certs:", status)
+        if len(list_for_create) != 0:
+           rc, status = create_cert(list_for_create, email)
+           print("Create certs:", status)
+        else:
+           rc = -1
         sys.exit(rc)
     elif action == "renew":
         rc = renew_cert()
@@ -114,28 +119,37 @@ def find_domains(args, domainlist):
                         ret.append(vdomain[host])
             else:
                 ret.append(vdomain[arg])
+        if len(ret) == 0:
+          print("Domain "+arg+" not found in apache config file")
     return ret
 
 
 def create_cert(dlist, email, status = "ok"):
+    rc = '-1'
     if '@' not in email:
         print("Error in email: " + email)
         sys.exit(2)
     else:
-        for i in range(len(dlist)):
-            dom_cmd = '-d ' + ' -d '.join(dlist[i]['aliases'])
-            docroot_cmd = '-w ' + dlist[i]['docroot']
-            cmd = './certbot-auto certonly --agree-tos --email ' + email + ' --webroot ' + docroot_cmd + ' ' + dom_cmd
-            rc = subprocess.run(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if rc.returncode == 0:
-                print(dlist[i]['name'] + ": Something went wrong. Check errors and try again. Certbot-auto return code: " + str(rc.returncode))
-                print("Output:")
-                print(rc.stderr)
-                status = "failed"
-            else:
-                status = write_config(dlist[i])
-
-    return rc.returncode, status
+        if len(dlist) != 0:
+            for i in range(len(dlist)):
+               dom_cmd = '-d ' + ' -d '.join(dlist[i]['aliases'])
+               docroot_cmd = '-w ' + dlist[i]['docroot']
+               cmd = './certbot-auto certonly --dry-run --agree-tos --email ' + email + ' --webroot ' + docroot_cmd + ' ' + dom_cmd
+               ret = subprocess.run(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+               rc = ret.returncode
+               # change me
+               if ret.returncode != 0:
+                   print(dlist[i]['name'] + ": Something went wrong. Check errors and try again. Certbot-auto return code: " + str(ret.returncode))
+                   print("Output:")
+                   print(ret.stderr.decode("utf-8") )
+                   status = "failed"
+               else:
+                   rc = 0
+                   status = write_config(dlist[i])
+        else:
+            rc = 1
+            status = "Failed. Domains not found " + " - ".join(dlist)
+        return rc, status
 
 def renew_cert(status = "ok"):
     cmd = 'certbot-auto renew'
@@ -168,15 +182,15 @@ def write_config(domain):
         domain['config'].insert(1, x)
 
     try:
-        f = open(apache_conf_incledes + "ssl_" + domain['name'] + ".conf", 'w')
+        f = open(apache_conf_includes + "ssl_" + domain['name'] + ".conf", 'w')
         f.write('\n'.join(domain['config']))
         f.close()
     except:
-        return 255, "Error: can't open " + apache_conf_incledes + "ssl_" + domain['name'] + ".conf"
+        return 255, "Error: can't open " + apache_conf_includes + "ssl_" + domain['name'] + ".conf"
 
     try:
-        f = open(apache_conf,"a")
-        f.write("Include \"" + apache_conf_incledes + "ssl_" + domain['name'] + ".conf" + "\"\n")
+        f = open(includes_conf,"a")
+        f.write("\nInclude \"" + apache_conf_includes + "ssl_" + domain['name'] + ".conf" + "\"\n")
         f.close()
     except:
         return 255, "Error: can't open " + apache_conf
