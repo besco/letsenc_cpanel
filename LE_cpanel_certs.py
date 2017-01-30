@@ -13,6 +13,7 @@ apache_conf_path = "/etc/httpd/conf/"
 apache_conf = apache_conf_path + 'httpd.conf'
 apache_conf_includes = apache_conf_path + 'includes/'
 includes_conf = apache_conf_includes + "post_virtualhost_global.conf"
+dry_mode = True
 # wget https://dl.eff.org/certbot-auto
 # chmod a+x certbot-auto
 
@@ -126,6 +127,11 @@ def find_domains(args, domainlist):
 
 def create_cert(dlist, email, status = "ok"):
     rc = '-1'
+    if dry_mode:
+        dryrun = '--dry-run'
+        print("Cert-bot will run in dry mode. Set dry_mode to false at the beginning of this script. Certificates will not be generated.")
+    else:
+       dryrun = ''
     if '@' not in email:
         print("Error in email: " + email)
         sys.exit(2)
@@ -134,7 +140,7 @@ def create_cert(dlist, email, status = "ok"):
             for i in range(len(dlist)):
                dom_cmd = '-d ' + ' -d '.join(dlist[i]['aliases'])
                docroot_cmd = '-w ' + dlist[i]['docroot']
-               cmd = './certbot-auto certonly --dry-run --agree-tos --email ' + email + ' --webroot ' + docroot_cmd + ' ' + dom_cmd
+               cmd = './certbot-auto certonly ' + dryrun + ' --dry-run --agree-tos --email ' + email + ' --webroot ' + docroot_cmd + ' ' + dom_cmd
                ret = subprocess.run(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                rc = ret.returncode
                # change me
