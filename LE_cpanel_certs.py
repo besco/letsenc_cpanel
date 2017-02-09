@@ -65,8 +65,7 @@ def certbot_dl(filename, url):
 def readfile(ifile):
     vhosts = list()
     try:
-        f = \
-            open(ifile, 'r')
+        f = open(ifile, 'r')
     except:
         print("File " + ifile + " not found or permissions denied.")
         sys.exit(3)
