@@ -44,7 +44,7 @@ def certbot_dl(filename, url):
         ret = subprocess.run(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         rc = ret.returncode
         if ret.returncode != 0:
-            print(dlist[i]['name'] + ": Something went wrong. Check errors and try again. Wget return code: " + str(
+            print("Something went wrong. Check errors and try again. Wget return code: " + str(
             ret.returncode))
             print("Output:")
             print(ret.stderr.decode("utf-8"))
@@ -53,7 +53,7 @@ def certbot_dl(filename, url):
             print("Download complete")
             ret = subprocess.run(shlex.split('chmod +x ' + filename), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if ret.returncode != 0:
-                print(dlist[i]['name'] + ": Something went wrong. Check errors and try again. Chmod return code: " + str(
+                print("Something went wrong. Check errors and try again. Chmod return code: " + str(
                 ret.returncode))
                 print("Output:")
                 print(ret.stderr.decode("utf-8"))
