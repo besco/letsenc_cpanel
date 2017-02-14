@@ -19,7 +19,7 @@ certbot_url = 'https://dl.eff.org/certbot-auto'
 auto_renew_script = '/home/besco/etc/cron.daily/renew_script_linux.sh'
 auto_renew_url = 'https://raw.githubusercontent.com/besco/le-update/master/renew_script_linux.sh'
 
-dry_mode = True
+dry_mode = False
 
 
 def certbot_dl(filename, url):
