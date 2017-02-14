@@ -1,4 +1,5 @@
 #! /usr/bin/python3.5
+
 # coding: UTF8
 
 import re
@@ -8,14 +9,56 @@ import subprocess
 import os
 import shlex
 
-# apache_conf_path = "/etc/httpd/conf/"
 apache_conf_path = "/etc/httpd/conf/"
 apache_conf = apache_conf_path + 'httpd.conf'
 apache_conf_includes = apache_conf_path + 'includes/'
 includes_conf = apache_conf_includes + "post_virtualhost_global.conf"
+certbot_script = "/etc/letsencrypt/certbot-auto"
+certbot_url = 'https://dl.eff.org/certbot-auto'
+auto_renew_script = '/etc/cron.daily/renew_script_linux.sh'
+auto_renew_url = 'https://raw.githubusercontent.com/besco/le-update/master/renew_script_linux.sh'
+
 dry_mode = True
-# wget https://dl.eff.org/certbot-auto
-# chmod a+x certbot-auto
+
+
+def certbot_dl(filename, url):
+    dir = os.path.dirname(filename)
+
+    try:
+        print("Checking for " + dir + ": ", end="")
+        os.stat(dir)
+    except:
+        print("failed. Creating dir")
+        os.makedirs(dir)
+    else:
+        print("ok")
+
+    try:
+        print("Checking for " + filename + ": ", end="")
+        f = open(filename, "r")
+        f.close()
+    except:
+        print("failed. File not exist. Downloading. ")
+        cmd = 'wget --directory-prefix=' + dir + ' ' + url
+        ret = subprocess.run(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        rc = ret.returncode
+        if ret.returncode != 0:
+            print("Something went wrong. Check errors and try again. Wget return code: " + str(
+            ret.returncode))
+            print("Output:")
+            print(ret.stderr.decode("utf-8"))
+            sys.exit(rc)
+        else:
+            print("Download complete")
+            ret = subprocess.run(shlex.split('chmod +x ' + filename), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if ret.returncode != 0:
+                print("Something went wrong. Check errors and try again. Chmod return code: " + str(
+                ret.returncode))
+                print("Output:")
+                print(ret.stderr.decode("utf-8"))
+                sys.exit(rc)
+    else:
+        print("ok")
 
 
 def readfile(ifile):
@@ -66,6 +109,10 @@ def get_virtual_host(filelink, line):
 
 
 def main(argv):
+    action = ''
+    email = ''
+    script_filename = os.path.basename(sys.argv[0])
+
     def print_usage():
         print("")
         print("Usege " + script_filename + " with parametres:")
@@ -75,10 +122,15 @@ def main(argv):
         #print("    " + script_filename + " --renew")
         print("")
 
-    action = ''
-    email = ''
-    script_filename = os.path.basename(sys.argv[0])
+    if len(argv) == 0:
+        print("Error! Not enough parameters")
+        print_usage()
+        sys.exit(2)
+
     domain_list = readfile(apache_conf)
+    certbot_dl(certbot_script, certbot_url)
+    certbot_dl(auto_renew_script, auto_renew_url)
+
     try:
        opts, args = getopt.getopt(argv, 'd', ['create', 'renew', 'email='])
     except getopt.GetoptError:
@@ -125,7 +177,7 @@ def find_domains(args, domainlist):
     return ret
 
 
-def create_cert(dlist, email, status = "ok"):
+def create_cert(dlist, email, status="ok"):
     rc = '-1'
     if dry_mode:
         dryrun = '--dry-run'
@@ -157,6 +209,7 @@ def create_cert(dlist, email, status = "ok"):
             status = "Failed. Domains not found " + " - ".join(dlist)
         return rc, status
 
+
 def renew_cert(status = "ok"):
     cmd = 'certbot-auto renew'
     rc = subprocess.run(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -165,6 +218,7 @@ def renew_cert(status = "ok"):
         print("Output:")
         print(rc.stderr)
     return rc.returncode, status
+
 
 def write_config(domain):
     ssl_conf = """
@@ -202,6 +256,7 @@ def write_config(domain):
         return 255, "Error: can't open " + apache_conf
 
     return "ok"
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
